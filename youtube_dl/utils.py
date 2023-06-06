@@ -56,6 +56,7 @@ from .compat import (
     compat_kwargs,
     compat_os_name,
     compat_re_Match,
+    compat_re_Pattern,
     compat_shlex_quote,
     compat_str,
     compat_struct_pack,
@@ -86,7 +87,7 @@ def register_socks_protocols():
 
 
 # Unfavoured alias
-compiled_regex_type = compat_re_Match
+compiled_regex_type = compat_re_Pattern
 
 
 def random_user_agent():
@@ -2176,11 +2177,11 @@ def sanitize_url(url):
     for mistake, fixup in COMMON_TYPOS:
         if re.match(mistake, url):
             return re.sub(mistake, fixup, url)
-    return escape_url(url)
+    return url
 
 
 def sanitized_Request(url, *args, **kwargs):
-    return compat_urllib_request.Request(sanitize_url(url), *args, **kwargs)
+    return compat_urllib_request.Request(escape_url(sanitize_url(url)), *args, **kwargs)
 
 
 def expand_path(s):
@@ -3190,6 +3191,10 @@ class DateRange(object):
     def __str__(self):
         return '%s - %s' % (self.start.isoformat(), self.end.isoformat())
 
+    def __eq__(self, other):
+        return (isinstance(other, DateRange)
+                and self.start == other.start and self.end == other.end)
+
 
 def platform_name():
     """ Returns the platform name as a compat_str """
@@ -3749,6 +3754,11 @@ def strip_or_none(v, default=None):
     return v.strip() if isinstance(v, compat_str) else default
 
 
+def txt_or_none(v, default=None):
+    """ Combine str/strip_or_none, disallow blank value (for traverse_obj) """
+    return default if v is None else (compat_str(v).strip() or default)
+
+
 def url_or_none(url):
     if not url or not isinstance(url, compat_str):
         return None
@@ -4092,8 +4102,8 @@ def escape_url(url):
     ).geturl()
 
 
-def parse_qs(url):
-    return compat_parse_qs(compat_urllib_parse.urlparse(url).query)
+def parse_qs(url, **kwargs):
+    return compat_parse_qs(compat_urllib_parse.urlparse(url).query, **kwargs)
 
 
 def read_batch_urls(batch_fd):
@@ -4213,6 +4223,8 @@ def multipart_encode(data, boundary=None):
 
 
 def variadic(x, allowed_types=(compat_str, bytes, dict)):
+    if not isinstance(allowed_types, tuple) and isinstance(allowed_types, compat_collections_abc.Iterable):
+        allowed_types = tuple(allowed_types)
     return x if isinstance(x, compat_collections_abc.Iterable) and not isinstance(x, allowed_types) else (x,)
 
 
